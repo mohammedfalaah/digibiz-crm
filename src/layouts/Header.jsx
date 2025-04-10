@@ -1,6 +1,12 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const Header = () => {
+  const navigate=useNavigate()
+  const logout=()=>{
+    localStorage.clear()
+    navigate('/login')
+  }
   return (
     <>
  <header id="page-topbar">
@@ -10,18 +16,18 @@ const Header = () => {
           <div className="navbar-brand-box">
             <a href="index.html" className="logo logo-dark">
               <span className="logo-sm">
-                <img src="assets/images/logo.svg" alt height={22} />
+                <img src="assets/images/logo.svg" alt  />
               </span>
               <span className="logo-lg">
-                <img src="assets/images/logo-dark.png" alt height={17} />
+                <img src="assets/images/logo-dark.png" alt  />
               </span>
             </a>
             <a href="index.html" className="logo logo-light">
               <span className="logo-sm">
-                <img src="assets/images/digibiz.png" alt height={22} />
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJGyYm_xL81Josj16wvc_z9BMIHK3Iw1vRnQ&s" alt height={22} />
               </span>
               <span className="logo-lg">
-                <img style={{width:'100px'}} src="assets/images/digibiz.png" alt height={50} />
+                <img style={{width:"60px",height:"auto"}} src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJGyYm_xL81Josj16wvc_z9BMIHK3Iw1vRnQ&s" alt height={50} />
               </span>
             </a>
           </div>
@@ -71,7 +77,7 @@ const Header = () => {
               <a className="dropdown-item d-block" href="#"><span className="badge bg-success float-end">11</span><i className="bx bx-wrench font-size-16 align-middle me-1" /> <span key="t-settings">Settings</span></a>
               <a className="dropdown-item" href="#"><i className="bx bx-lock-open font-size-16 align-middle me-1" /> <span key="t-lock-screen">Lock screen</span></a>
               <div className="dropdown-divider" />
-              <a className="dropdown-item text-danger" href="#"><i className="bx bx-power-off font-size-16 align-middle me-1 text-danger" /> <span key="t-logout">Logout</span></a>
+              <a className="dropdown-item text-danger" onClick={()=>logout()}><i className="bx bx-power-off font-size-16 align-middle me-1 text-danger" /> <span key="t-logout">Logout</span></a>
             </div>
           </div>
          
