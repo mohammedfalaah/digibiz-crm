@@ -6,6 +6,10 @@ import Login from "./Login"
 import { Toaster } from "react-hot-toast"
 import Dms from "./Dms"
 import PrivateRoutes from "./authentication/Privateroutes"
+import Accountants from "./Accountents"
+import Projects from "./Projects"
+import Scheme from "./Scheme"
+import Clients from "./Client"
 
 function App() {
 
@@ -18,8 +22,14 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login/>}/>
       <Route path="/" element={<PrivateRoutes><AdminRoute /></PrivateRoutes>}>
-      <Route index element={<Dashboard />} />
-      <Route path="/dms" element={<Dms/>}/>
+      <Route index element={<PrivateRoutes><Dashboard /></PrivateRoutes>} />
+      <Route path="/dms" element={<PrivateRoutes><Dms/></PrivateRoutes>}/>
+      <Route path="/accounts" element={<PrivateRoutes><Accountants/></PrivateRoutes>}/>
+      <Route path="/projects" element={<PrivateRoutes><Projects/></PrivateRoutes>}/>
+      <Route path="/scheme" element={<PrivateRoutes><Scheme/></PrivateRoutes>}/>
+      <Route path="/client" element={<PrivateRoutes><Clients/></PrivateRoutes>}/>
+
+
       </Route>
     </Routes>
 

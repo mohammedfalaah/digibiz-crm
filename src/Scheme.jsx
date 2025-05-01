@@ -3,11 +3,11 @@ import axios from 'axios';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
 
-function Dms() {
-  const [dmsList, setDmsList] = useState([]);
+function Scheme() {
+  const [schemesList, setSchemesList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const navigate=useNavigate()
+  const navigate = useNavigate();
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -21,25 +21,26 @@ function Dms() {
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentDm, setCurrentDm] = useState({
+  const [currentScheme, setCurrentScheme] = useState({
     _id: '',
-    name: "",
-    district: [],
-    contactNo: "",
-    email: ""
+    schemeName: "",
+    downPaymentPercentage: 0,
+    totalMonthsOfEMI: 0,
+    status: "active",
+    isBlocked: false
   });
 
-  // Fetch DMs with pagination
-  const getDms = async (page = 1, limit = 10) => {
+  // Fetch schemes with pagination
+  const getSchemes = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
-      const result = await axios.get(`${api}/dm?page=${page}&limit=${limit}`, {
+      const result = await axios.get(`${api}/scheme?page=${page}&limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${TOKEN}`
         }
       });
       
-      setDmsList(result.data.data.docs);
+      setSchemesList(result.data.data.docs);
       setPagination({
         page: result.data.data.page,
         limit: result.data.data.limit,
@@ -50,58 +51,49 @@ function Dms() {
       });
       setError(null);
     } catch (error) {
-      setError('Error fetching DMs');
-      navigate('/login')
-      console.error('Error fetching DMs:', error);
+      setError('Error fetching schemes');
+      console.error('Error fetching schemes:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    getDms();
+    getSchemes();
   }, []);
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
-      getDms(newPage, pagination.limit);
+      getSchemes(newPage, pagination.limit);
     }
   };
 
   // Handle input change for form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentDm({
-      ...currentDm,
+    setCurrentScheme({
+      ...currentScheme,
       [name]: value
     });
   };
 
-  // Add or Update DM
+  // Add or Update Scheme
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
-      // Prepare district array
-      const dmData = {
-        ...currentDm,
-        district: typeof currentDm.district === 'string' 
-          ? currentDm.district.split(',').map(item => item.trim()).filter(item => item)
-          : currentDm.district
-      };
-
       if (isEditMode) {
-        // Update existing DM
-        await axios.put(`${api}/dm/${dmData._id}`, dmData, {
+        // Update existing scheme
+        await axios.put(`${api}/scheme/${currentScheme._id}`, currentScheme, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
           }
         });
       } else {
-        // Add new DM
-        await axios.post(`${api}/dm`, dmData, {
+        // Add new scheme
+        await axios.post(`${api}/scheme`, currentScheme, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
@@ -110,53 +102,72 @@ function Dms() {
       }
       
       // Refresh the list and close modal
-      getDms(pagination.page, pagination.limit);
+      getSchemes(pagination.page, pagination.limit);
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error('Error saving DM:', error);
-      setError(`Error ${isEditMode ? 'updating' : 'adding'} DM: ${error.response?.data?.message || error.message}`);
+      console.error('Error saving scheme:', error);
+      setError(`Error ${isEditMode ? 'updating' : 'adding'} scheme: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // Edit DM
-  const handleEdit = (dm) => {
-    setCurrentDm({
-      _id: dm._id,
-      name: dm.name,
-      district: Array.isArray(dm.district) ? dm.district.join(', ') : dm.district,
-      contactNo: dm.contactNo,
-      email: dm.email
+  // Edit Scheme
+  const handleEdit = (scheme) => {
+    setCurrentScheme({
+      _id: scheme._id,
+      schemeName: scheme.schemeName,
+      downPaymentPercentage: scheme.downPaymentPercentage,
+      totalMonthsOfEMI: scheme.totalMonthsOfEMI,
+      status: scheme.status,
+      isBlocked: scheme.isBlocked
     });
     setIsEditMode(true);
     setShowModal(true);
   };
 
-  // Delete DM
+  // Delete Scheme
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this DM?')) {
+    if (window.confirm('Are you sure you want to delete this scheme?')) {
       try {
-        await axios.delete(`${api}/dm/${id}`, {
+        await axios.delete(`${api}/scheme/${id}`, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`
           }
         });
-        getDms(pagination.page, pagination.limit); // Refresh the current page
+        getSchemes(pagination.page, pagination.limit);
       } catch (error) {
-        console.error('Error deleting DM:', error);
-        setError('Error deleting DM');
+        console.error('Error deleting scheme:', error);
+        setError('Error deleting scheme');
       }
+    }
+  };
+
+  // Toggle block status
+  const toggleBlockStatus = async (id, currentStatus) => {
+    try {
+      await axios.patch(`${api}/scheme/${id}/block`, {
+        isBlocked: !currentStatus
+      }, {
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`
+        }
+      });
+      getSchemes(pagination.page, pagination.limit);
+    } catch (error) {
+      console.error('Error toggling block status:', error);
+      setError('Error updating block status');
     }
   };
 
   // Reset form
   const resetForm = () => {
-    setCurrentDm({
+    setCurrentScheme({
       _id: '',
-      name: "",
-      district: [],
-      contactNo: "",
-      email: ""
+      schemeName: "",
+      downPaymentPercentage: 0,
+      totalMonthsOfEMI: 0,
+      status: "active",
+      isBlocked: false
     });
     setIsEditMode(false);
   };
@@ -164,7 +175,7 @@ function Dms() {
   // Change items per page
   const handleLimitChange = (e) => {
     const newLimit = parseInt(e.target.value);
-    getDms(1, newLimit);
+    getSchemes(1, newLimit);
   };
 
   return (
@@ -175,7 +186,7 @@ function Dms() {
           <div className="row">
             <div className="col-12">
               <div className="page-title-box d-sm-flex align-items-center justify-content-between">
-                <h4 className="mb-sm-0 font-size-18">DM's List</h4>
+                <h4 className="mb-sm-0 font-size-18">Schemes List</h4>
               </div>
             </div>
           </div>
@@ -185,7 +196,7 @@ function Dms() {
               <div className="card">
                 <div className="card-body border-bottom">
                   <div className="d-flex align-items-center">
-                    <h5 className="mb-0 card-title flex-grow-1">DM's Lists</h5>
+                    <h5 className="mb-0 card-title flex-grow-1">Schemes List</h5>
                     <div className="flex-shrink-0">
                       <button 
                         className="btn btn-primary me-2" 
@@ -194,9 +205,9 @@ function Dms() {
                           setShowModal(true);
                         }}
                       >
-                        Add New DM
+                        Add New Scheme
                       </button>
-                      <button className="btn btn-light me-2" onClick={() => getDms(pagination.page, pagination.limit)}>
+                      <button className="btn btn-light me-2" onClick={() => getSchemes(pagination.page, pagination.limit)}>
                         <i className="mdi mdi-refresh" />
                       </button>
                     </div>
@@ -225,8 +236,6 @@ function Dms() {
                             value={pagination.limit}
                             onChange={handleLimitChange}
                           >
-                            <option value="2">2 per page</option>
-
                             <option value="5">5 per page</option>
                             <option value="10">10 per page</option>
                             <option value="20">20 per page</option>
@@ -240,29 +249,45 @@ function Dms() {
                           <thead>
                             <tr>
                               <th scope="col">No</th>
-                              <th scope="col">Name</th>
-                              <th scope="col">District</th>
-                              <th scope="col">Phone</th>
-                              <th scope="col">Email</th>
-                              <th scope="col">Action</th>
+                              <th scope="col">Scheme Name</th>
+                              <th scope="col">Down Payment (%)</th>
+                              <th scope="col">Total Months of EMI</th>
+                              <th scope="col">Status</th>
+                              <th scope="col">Block Status</th>
+                              <th scope="col">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {dmsList.map((dm, index) => (
-                              <tr key={dm._id}>
+                            {schemesList.map((scheme, index) => (
+                              <tr key={scheme._id}>
                                 <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                                <td>{dm.name}</td>
+                                <td>{scheme.schemeName}</td>
+                                <td>{scheme.downPaymentPercentage}%</td>
+                                <td>{scheme.totalMonthsOfEMI}</td>
                                 <td>
-                                  {Array.isArray(dm.district) ? dm.district.join(', ') : dm.district}
+                                  <span className={`badge bg-${scheme.status === 'active' ? 'success' : 'warning'}`}>
+                                    {scheme.status}
+                                  </span>
                                 </td>
-                                <td>{dm.contactNo}</td>
-                                <td>{dm.email}</td>
+                                <td>
+                                  <div className="form-check form-switch">
+                                    <input 
+                                      type="checkbox" 
+                                      className="form-check-input" 
+                                      checked={scheme.isBlocked}
+                                      onChange={() => toggleBlockStatus(scheme._id, scheme.isBlocked)}
+                                    />
+                                    <label className="form-check-label">
+                                      {scheme.isBlocked ? 'Blocked' : 'Active'}
+                                    </label>
+                                  </div>
+                                </td>
                                 <td>
                                   <div className="d-flex gap-3">
-                                    <a href="#!" className="text-success" onClick={() => handleEdit(dm)}>
+                                    <a href="#!" className="text-success" onClick={() => handleEdit(scheme)}>
                                       <i className="mdi mdi-pencil font-size-18" />
                                     </a>
-                                    <a href="#!" className="text-danger" onClick={() => handleDelete(dm._id)}>
+                                    <a href="#!" className="text-danger" onClick={() => handleDelete(scheme._id)}>
                                       <i className="mdi mdi-delete font-size-18" />
                                     </a>
                                   </div>
@@ -329,20 +354,20 @@ function Dms() {
         </div>
       </div>
 
-      {/* Add/Edit DM Modal */}
+      {/* Add/Edit Scheme Modal */}
       <div 
         className={`modal fade ${showModal ? 'show' : ''}`} 
         style={{ display: showModal ? 'block' : 'none' }}
-        id="dmModal" 
+        id="schemeModal" 
         tabIndex={-1} 
-        aria-labelledby="dmModalLabel" 
+        aria-labelledby="schemeModalLabel" 
         aria-hidden={!showModal}
       >
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title" id="dmModalLabel">
-                {isEditMode ? 'Edit DM' : 'Add New DM'}
+              <h5 className="modal-title" id="schemeModalLabel">
+                {isEditMode ? 'Edit Scheme' : 'Add New Scheme'}
               </h5>
               <button 
                 type="button" 
@@ -357,53 +382,60 @@ function Dms() {
             <div className="modal-body">
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
-                  <label htmlFor="name" className="form-label">Name</label>
+                  <label htmlFor="schemeName" className="form-label">Scheme Name</label>
                   <input 
                     type="text" 
                     className="form-control" 
-                    id="name" 
-                    name="name"
-                    value={currentDm.name}
+                    id="schemeName" 
+                    name="schemeName"
+                    value={currentScheme.schemeName}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="district" className="form-label">District (comma separated)</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    id="district" 
-                    name="district"
-                    value={currentDm.district}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <small className="text-muted">Enter multiple districts separated by commas</small>
+                  <label htmlFor="downPaymentPercentage" className="form-label">Down Payment Percentage</label>
+                  <div className="input-group">
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      id="downPaymentPercentage" 
+                      name="downPaymentPercentage"
+                      min="0"
+                      max="100"
+                      value={currentScheme.downPaymentPercentage}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    <span className="input-group-text">%</span>
+                  </div>
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="contactNo" className="form-label">Phone</label>
+                  <label htmlFor="totalMonthsOfEMI" className="form-label">Total Months of EMI</label>
                   <input 
-                    type="tel" 
+                    type="number" 
                     className="form-control" 
-                    id="contactNo" 
-                    name="contactNo"
-                    value={currentDm.contactNo}
+                    id="totalMonthsOfEMI" 
+                    name="totalMonthsOfEMI"
+                    min="1"
+                    value={currentScheme.totalMonthsOfEMI}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="email" className="form-label">Email</label>
-                  <input 
-                    type="email" 
-                    className="form-control" 
-                    id="email" 
-                    name="email"
-                    value={currentDm.email}
+                  <label htmlFor="status" className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    id="status"
+                    name="status"
+                    value={currentScheme.status}
                     onChange={handleInputChange}
                     required
-                  />
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
                 </div>
                 <div className="modal-footer">
                   <button 
@@ -427,7 +459,7 @@ function Dms() {
       </div>
       {showModal && <div className="modal-backdrop fade show"></div>}
     </>
-  )
+  );
 }
 
-export default Dms;
+export default Scheme;

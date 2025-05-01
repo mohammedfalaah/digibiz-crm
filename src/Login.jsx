@@ -17,9 +17,9 @@ function Login() {
         password
     }
       const res = await Axioscall('post','user/login',data,false)
-      console.log('Login Success:', res.data);
+      console.log('Login Success:', res.data.data);
       // You can store token or redirect here
-      localStorage.setItem('digibiztocken', res.data.token);
+      localStorage.setItem('digibiztocken', res.data.data.token);
       toast.success( res.data.message)
       navigate('/')
 

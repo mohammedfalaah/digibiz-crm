@@ -3,11 +3,11 @@ import axios from 'axios';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
 
-function Dms() {
-  const [dmsList, setDmsList] = useState([]);
+function Projects() {
+  const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const navigate=useNavigate()
+  const navigate = useNavigate();
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -21,25 +21,29 @@ function Dms() {
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentDm, setCurrentDm] = useState({
+  const [currentProject, setCurrentProject] = useState({
     _id: '',
     name: "",
-    district: [],
-    contactNo: "",
-    email: ""
+    startedDate: "",
+    status: "active", // active, completed, blocked
+    scheme: "",
+    district: "",
+    handledDM: "",
+    handledAccountant: "",
+    isBlocked: false
   });
 
-  // Fetch DMs with pagination
-  const getDms = async (page = 1, limit = 10) => {
+  // Fetch projects with pagination
+  const getProjects = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
-      const result = await axios.get(`${api}/dm?page=${page}&limit=${limit}`, {
+      const result = await axios.get(`${api}/project?page=${page}&limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${TOKEN}`
         }
       });
       
-      setDmsList(result.data.data.docs);
+      setProjectsList(result.data.data.docs);
       setPagination({
         page: result.data.data.page,
         limit: result.data.data.limit,
@@ -50,58 +54,50 @@ function Dms() {
       });
       setError(null);
     } catch (error) {
-      setError('Error fetching DMs');
-      navigate('/login')
-      console.error('Error fetching DMs:', error);
+      setError('Error fetching projects');
+    //   navigate('/login');
+      console.error('Error fetching projects:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    getDms();
+    getProjects();
   }, []);
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
-      getDms(newPage, pagination.limit);
+      getProjects(newPage, pagination.limit);
     }
   };
 
   // Handle input change for form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentDm({
-      ...currentDm,
+    setCurrentProject({
+      ...currentProject,
       [name]: value
     });
   };
 
-  // Add or Update DM
+  // Add or Update Project
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
-      // Prepare district array
-      const dmData = {
-        ...currentDm,
-        district: typeof currentDm.district === 'string' 
-          ? currentDm.district.split(',').map(item => item.trim()).filter(item => item)
-          : currentDm.district
-      };
-
       if (isEditMode) {
-        // Update existing DM
-        await axios.put(`${api}/dm/${dmData._id}`, dmData, {
+        // Update existing project
+        await axios.put(`${api}/project/${currentProject._id}`, currentProject, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
           }
         });
       } else {
-        // Add new DM
-        await axios.post(`${api}/dm`, dmData, {
+        // Add new project
+        await axios.post(`${api}/project`, currentProject, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
@@ -110,53 +106,78 @@ function Dms() {
       }
       
       // Refresh the list and close modal
-      getDms(pagination.page, pagination.limit);
+      getProjects(pagination.page, pagination.limit);
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error('Error saving DM:', error);
-      setError(`Error ${isEditMode ? 'updating' : 'adding'} DM: ${error.response?.data?.message || error.message}`);
+      console.error('Error saving project:', error);
+      setError(`Error ${isEditMode ? 'updating' : 'adding'} project: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // Edit DM
-  const handleEdit = (dm) => {
-    setCurrentDm({
-      _id: dm._id,
-      name: dm.name,
-      district: Array.isArray(dm.district) ? dm.district.join(', ') : dm.district,
-      contactNo: dm.contactNo,
-      email: dm.email
+  // Edit Project
+  const handleEdit = (project) => {
+    setCurrentProject({
+      _id: project._id,
+      name: project.name,
+      startedDate: project.startedDate,
+      status: project.status,
+      scheme: project.scheme,
+      district: project.district,
+      handledDM: project.handledDM,
+      handledAccountant: project.handledAccountant,
+      isBlocked: project.isBlocked
     });
     setIsEditMode(true);
     setShowModal(true);
   };
 
-  // Delete DM
+  // Delete Project
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this DM?')) {
+    if (window.confirm('Are you sure you want to delete this project?')) {
       try {
-        await axios.delete(`${api}/dm/${id}`, {
+        await axios.delete(`${api}/project/${id}`, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`
           }
         });
-        getDms(pagination.page, pagination.limit); // Refresh the current page
+        getProjects(pagination.page, pagination.limit); // Refresh the current page
       } catch (error) {
-        console.error('Error deleting DM:', error);
-        setError('Error deleting DM');
+        console.error('Error deleting project:', error);
+        setError('Error deleting project');
       }
+    }
+  };
+
+  // Toggle block status
+  const toggleBlockStatus = async (id, currentStatus) => {
+    try {
+      await axios.patch(`${api}/project/${id}/block`, {
+        isBlocked: !currentStatus
+      }, {
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`
+        }
+      });
+      getProjects(pagination.page, pagination.limit);
+    } catch (error) {
+      console.error('Error toggling block status:', error);
+      setError('Error updating block status');
     }
   };
 
   // Reset form
   const resetForm = () => {
-    setCurrentDm({
+    setCurrentProject({
       _id: '',
       name: "",
-      district: [],
-      contactNo: "",
-      email: ""
+      startedDate: "",
+      status: "active",
+      scheme: "",
+      district: "",
+      handledDM: "",
+      handledAccountant: "",
+      isBlocked: false
     });
     setIsEditMode(false);
   };
@@ -164,7 +185,7 @@ function Dms() {
   // Change items per page
   const handleLimitChange = (e) => {
     const newLimit = parseInt(e.target.value);
-    getDms(1, newLimit);
+    getProjects(1, newLimit);
   };
 
   return (
@@ -175,7 +196,7 @@ function Dms() {
           <div className="row">
             <div className="col-12">
               <div className="page-title-box d-sm-flex align-items-center justify-content-between">
-                <h4 className="mb-sm-0 font-size-18">DM's List</h4>
+                <h4 className="mb-sm-0 font-size-18">Projects List</h4>
               </div>
             </div>
           </div>
@@ -185,7 +206,7 @@ function Dms() {
               <div className="card">
                 <div className="card-body border-bottom">
                   <div className="d-flex align-items-center">
-                    <h5 className="mb-0 card-title flex-grow-1">DM's Lists</h5>
+                    <h5 className="mb-0 card-title flex-grow-1">Projects List</h5>
                     <div className="flex-shrink-0">
                       <button 
                         className="btn btn-primary me-2" 
@@ -194,9 +215,9 @@ function Dms() {
                           setShowModal(true);
                         }}
                       >
-                        Add New DM
+                        Add New Project
                       </button>
-                      <button className="btn btn-light me-2" onClick={() => getDms(pagination.page, pagination.limit)}>
+                      <button className="btn btn-light me-2" onClick={() => getProjects(pagination.page, pagination.limit)}>
                         <i className="mdi mdi-refresh" />
                       </button>
                     </div>
@@ -225,8 +246,6 @@ function Dms() {
                             value={pagination.limit}
                             onChange={handleLimitChange}
                           >
-                            <option value="2">2 per page</option>
-
                             <option value="5">5 per page</option>
                             <option value="10">10 per page</option>
                             <option value="20">20 per page</option>
@@ -241,29 +260,54 @@ function Dms() {
                             <tr>
                               <th scope="col">No</th>
                               <th scope="col">Name</th>
+                              <th scope="col">Started Date</th>
+                              <th scope="col">Status</th>
+                              <th scope="col">Scheme</th>
                               <th scope="col">District</th>
-                              <th scope="col">Phone</th>
-                              <th scope="col">Email</th>
-                              <th scope="col">Action</th>
+                              <th scope="col">Handled DM</th>
+                              <th scope="col">Handled Accountant</th>
+                              <th scope="col">Block Status</th>
+                              <th scope="col">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {dmsList.map((dm, index) => (
-                              <tr key={dm._id}>
+                            {projectsList.map((project, index) => (
+                              <tr key={project._id}>
                                 <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                                <td>{dm.name}</td>
+                                <td>{project.name}</td>
+                                <td>{new Date(project.startedDate).toLocaleDateString()}</td>
                                 <td>
-                                  {Array.isArray(dm.district) ? dm.district.join(', ') : dm.district}
+                                  <span className={`badge bg-${project.status === 'active' ? 'success' : project.status === 'completed' ? 'primary' : 'warning'}`}>
+                                    {project.status}
+                                  </span>
                                 </td>
-                                <td>{dm.contactNo}</td>
-                                <td>{dm.email}</td>
+                                <td>{project.scheme}</td>
+                                <td>{project.district}</td>
+                                <td>{project.handledDM}</td>
+                                <td>{project.handledAccountant}</td>
+                                <td>
+                                  <div className="form-check form-switch">
+                                    <input 
+                                      type="checkbox" 
+                                      className="form-check-input" 
+                                      checked={project.isBlocked}
+                                      onChange={() => toggleBlockStatus(project._id, project.isBlocked)}
+                                    />
+                                    <label className="form-check-label">
+                                      {project.isBlocked ? 'Blocked' : 'Active'}
+                                    </label>
+                                  </div>
+                                </td>
                                 <td>
                                   <div className="d-flex gap-3">
-                                    <a href="#!" className="text-success" onClick={() => handleEdit(dm)}>
+                                    <a href="#!" className="text-success" onClick={() => handleEdit(project)}>
                                       <i className="mdi mdi-pencil font-size-18" />
                                     </a>
-                                    <a href="#!" className="text-danger" onClick={() => handleDelete(dm._id)}>
+                                    <a href="#!" className="text-danger" onClick={() => handleDelete(project._id)}>
                                       <i className="mdi mdi-delete font-size-18" />
+                                    </a>
+                                    <a href={`/projects/${project._id}`} className="text-primary">
+                                      <i className="mdi mdi-eye font-size-18" />
                                     </a>
                                   </div>
                                 </td>
@@ -329,20 +373,20 @@ function Dms() {
         </div>
       </div>
 
-      {/* Add/Edit DM Modal */}
+      {/* Add/Edit Project Modal */}
       <div 
         className={`modal fade ${showModal ? 'show' : ''}`} 
         style={{ display: showModal ? 'block' : 'none' }}
-        id="dmModal" 
+        id="projectModal" 
         tabIndex={-1} 
-        aria-labelledby="dmModalLabel" 
+        aria-labelledby="projectModalLabel" 
         aria-hidden={!showModal}
       >
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title" id="dmModalLabel">
-                {isEditMode ? 'Edit DM' : 'Add New DM'}
+              <h5 className="modal-title" id="projectModalLabel">
+                {isEditMode ? 'Edit Project' : 'Add New Project'}
               </h5>
               <button 
                 type="button" 
@@ -357,50 +401,88 @@ function Dms() {
             <div className="modal-body">
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
-                  <label htmlFor="name" className="form-label">Name</label>
+                  <label htmlFor="name" className="form-label">Project Name</label>
                   <input 
                     type="text" 
                     className="form-control" 
                     id="name" 
                     name="name"
-                    value={currentDm.name}
+                    value={currentProject.name}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="district" className="form-label">District (comma separated)</label>
+                  <label htmlFor="startedDate" className="form-label">Started Date</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    id="startedDate" 
+                    name="startedDate"
+                    value={currentProject.startedDate}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="status" className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    id="status"
+                    name="status"
+                    value={currentProject.status}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="scheme" className="form-label">Scheme</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    id="scheme" 
+                    name="scheme"
+                    value={currentProject.scheme}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="district" className="form-label">District</label>
                   <input 
                     type="text" 
                     className="form-control" 
                     id="district" 
                     name="district"
-                    value={currentDm.district}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <small className="text-muted">Enter multiple districts separated by commas</small>
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="contactNo" className="form-label">Phone</label>
-                  <input 
-                    type="tel" 
-                    className="form-control" 
-                    id="contactNo" 
-                    name="contactNo"
-                    value={currentDm.contactNo}
+                    value={currentProject.district}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div className="mb-3">
-                  <label htmlFor="email" className="form-label">Email</label>
+                  <label htmlFor="handledDM" className="form-label">Handled DM</label>
                   <input 
-                    type="email" 
+                    type="text" 
                     className="form-control" 
-                    id="email" 
-                    name="email"
-                    value={currentDm.email}
+                    id="handledDM" 
+                    name="handledDM"
+                    value={currentProject.handledDM}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="handledAccountant" className="form-label">Handled Accountant</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    id="handledAccountant" 
+                    name="handledAccountant"
+                    value={currentProject.handledAccountant}
                     onChange={handleInputChange}
                     required
                   />
@@ -427,7 +509,7 @@ function Dms() {
       </div>
       {showModal && <div className="modal-backdrop fade show"></div>}
     </>
-  )
+  );
 }
 
-export default Dms;
+export default Projects;

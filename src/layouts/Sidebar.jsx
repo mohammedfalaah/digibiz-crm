@@ -26,6 +26,31 @@ const Sidebar = () => {
               </a>
             
             </li>
+            <li onClick={()=>navigate('/accounts')}>
+              <a  className="waves-effect">
+                <i className="bx bx-layout" />
+                <span key="t-layouts">Accountents</span>
+              </a>
+              
+            
+            </li>
+            <li onClick={()=>navigate('/scheme')}>
+              <a  className="waves-effect">
+                <i className="bx bx-layout" />
+                <span key="t-layouts">Scheme</span>
+              </a>
+              
+            
+            </li>
+
+            <li onClick={()=>navigate('/projects')}>
+              <a  className="waves-effect">
+                <i className="bx bx-layout" />
+                <span key="t-layouts">Projects</span>
+              </a>
+              
+            
+            </li>
             <li>
               <a href="javascript: void(0);" className="waves-effect">
                 <i className="bx bx-layout" />

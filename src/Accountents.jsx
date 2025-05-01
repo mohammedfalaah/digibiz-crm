@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import api from './api';
-import { useNavigate } from 'react-router-dom';
 
-function Dms() {
-  const [dmsList, setDmsList] = useState([]);
+function Accountants() {
+  const [accountantsList, setAccountantsList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const navigate=useNavigate()
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -21,25 +19,26 @@ function Dms() {
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [currentDm, setCurrentDm] = useState({
+  const [currentAccountant, setCurrentAccountant] = useState({
     _id: '',
     name: "",
-    district: [],
+    email: "",
     contactNo: "",
-    email: ""
+    district: [] // Changed to array for multiple districts
   });
+  const [currentDistrictInput, setCurrentDistrictInput] = useState(""); // New state for district input
 
-  // Fetch DMs with pagination
-  const getDms = async (page = 1, limit = 10) => {
+  // Fetch Accountants with pagination
+  const getAccountants = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
-      const result = await axios.get(`${api}/dm?page=${page}&limit=${limit}`, {
+      const result = await axios.get(`${api}/accounts?page=${page}&limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${TOKEN}`
         }
       });
       
-      setDmsList(result.data.data.docs);
+      setAccountantsList(result.data.data.docs);
       setPagination({
         page: result.data.data.page,
         limit: result.data.data.limit,
@@ -50,58 +49,75 @@ function Dms() {
       });
       setError(null);
     } catch (error) {
-      setError('Error fetching DMs');
-      navigate('/login')
-      console.error('Error fetching DMs:', error);
+      setError('Error fetching accountants');
+      console.error('Error fetching accountants:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    getDms();
+    getAccountants();
   }, []);
 
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
-      getDms(newPage, pagination.limit);
+      getAccountants(newPage, pagination.limit);
     }
   };
 
   // Handle input change for form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentDm({
-      ...currentDm,
+    setCurrentAccountant({
+      ...currentAccountant,
       [name]: value
     });
   };
 
-  // Add or Update DM
+  // Handle district input change
+  const handleDistrictInputChange = (e) => {
+    setCurrentDistrictInput(e.target.value);
+  };
+
+  // Add district to the list
+  const addDistrict = () => {
+    if (currentDistrictInput.trim() && !currentAccountant.district.includes(currentDistrictInput.trim())) {
+      setCurrentAccountant({
+        ...currentAccountant,
+        district: [...currentAccountant.district, currentDistrictInput.trim()]
+      });
+      setCurrentDistrictInput("");
+    }
+  };
+
+  // Remove district from the list
+  const removeDistrict = (districtToRemove) => {
+    setCurrentAccountant({
+      ...currentAccountant,
+      district: currentAccountant.district.filter(district => district !== districtToRemove)
+    });
+  };
+
+  // Add or Update Accountant
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
-      // Prepare district array
-      const dmData = {
-        ...currentDm,
-        district: typeof currentDm.district === 'string' 
-          ? currentDm.district.split(',').map(item => item.trim()).filter(item => item)
-          : currentDm.district
-      };
-
       if (isEditMode) {
-        // Update existing DM
-        await axios.put(`${api}/dm/${dmData._id}`, dmData, {
+        // Update existing accountant
+        currentAccountant.id=currentAccountant._id
+        await axios.put(`${api}/accounts`, currentAccountant, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
           }
         });
       } else {
-        // Add new DM
-        await axios.post(`${api}/dm`, dmData, {
+        // Add new accountant
+        delete currentAccountant._id
+        await axios.post(`${api}/accounts`, currentAccountant, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
@@ -110,61 +126,62 @@ function Dms() {
       }
       
       // Refresh the list and close modal
-      getDms(pagination.page, pagination.limit);
+      getAccountants(pagination.page, pagination.limit);
       setShowModal(false);
       resetForm();
     } catch (error) {
-      console.error('Error saving DM:', error);
-      setError(`Error ${isEditMode ? 'updating' : 'adding'} DM: ${error.response?.data?.message || error.message}`);
+      console.error('Error saving accountant:', error);
+      setError(`Error ${isEditMode ? 'updating' : 'adding'} accountant: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // Edit DM
-  const handleEdit = (dm) => {
-    setCurrentDm({
-      _id: dm._id,
-      name: dm.name,
-      district: Array.isArray(dm.district) ? dm.district.join(', ') : dm.district,
-      contactNo: dm.contactNo,
-      email: dm.email
+  // Edit Accountant
+  const handleEdit = (accountant) => {
+    setCurrentAccountant({
+      _id: accountant._id,
+      name: accountant.name,
+      email: accountant.email,
+      contactNo: accountant.contactNo,
+      district: accountant.district || [] // Ensure district is an array
     });
     setIsEditMode(true);
     setShowModal(true);
   };
 
-  // Delete DM
+  // Delete Accountant
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this DM?')) {
+    if (window.confirm('Are you sure you want to delete this accountant?')) {
       try {
-        await axios.delete(`${api}/dm/${id}`, {
+        await axios.delete(`${api}/accounts?id=${id}`, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`
           }
         });
-        getDms(pagination.page, pagination.limit); // Refresh the current page
+        getAccountants(pagination.page, pagination.limit); // Refresh the current page
       } catch (error) {
-        console.error('Error deleting DM:', error);
-        setError('Error deleting DM');
+        console.error('Error deleting accountant:', error);
+        setError('Error deleting accountant');
       }
     }
   };
 
   // Reset form
   const resetForm = () => {
-    setCurrentDm({
+    setCurrentAccountant({
       _id: '',
       name: "",
-      district: [],
+      email: "",
       contactNo: "",
-      email: ""
+      district: []
     });
+    setCurrentDistrictInput("");
     setIsEditMode(false);
   };
 
   // Change items per page
   const handleLimitChange = (e) => {
     const newLimit = parseInt(e.target.value);
-    getDms(1, newLimit);
+    getAccountants(1, newLimit);
   };
 
   return (
@@ -175,7 +192,7 @@ function Dms() {
           <div className="row">
             <div className="col-12">
               <div className="page-title-box d-sm-flex align-items-center justify-content-between">
-                <h4 className="mb-sm-0 font-size-18">DM's List</h4>
+                <h4 className="mb-sm-0 font-size-18">Accountants List</h4>
               </div>
             </div>
           </div>
@@ -185,7 +202,7 @@ function Dms() {
               <div className="card">
                 <div className="card-body border-bottom">
                   <div className="d-flex align-items-center">
-                    <h5 className="mb-0 card-title flex-grow-1">DM's Lists</h5>
+                    <h5 className="mb-0 card-title flex-grow-1">Accountants</h5>
                     <div className="flex-shrink-0">
                       <button 
                         className="btn btn-primary me-2" 
@@ -194,9 +211,9 @@ function Dms() {
                           setShowModal(true);
                         }}
                       >
-                        Add New DM
+                        Add New Accountant
                       </button>
-                      <button className="btn btn-light me-2" onClick={() => getDms(pagination.page, pagination.limit)}>
+                      <button className="btn btn-light me-2" onClick={() => getAccountants(pagination.page, pagination.limit)}>
                         <i className="mdi mdi-refresh" />
                       </button>
                     </div>
@@ -225,8 +242,6 @@ function Dms() {
                             value={pagination.limit}
                             onChange={handleLimitChange}
                           >
-                            <option value="2">2 per page</option>
-
                             <option value="5">5 per page</option>
                             <option value="10">10 per page</option>
                             <option value="20">20 per page</option>
@@ -241,28 +256,28 @@ function Dms() {
                             <tr>
                               <th scope="col">No</th>
                               <th scope="col">Name</th>
-                              <th scope="col">District</th>
-                              <th scope="col">Phone</th>
                               <th scope="col">Email</th>
+                              <th scope="col">contactNo</th>
+                              <th scope="col">district</th>
                               <th scope="col">Action</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {dmsList.map((dm, index) => (
-                              <tr key={dm._id}>
+                            {accountantsList.map((accountant, index) => (
+                              <tr key={accountant._id}>
                                 <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                                <td>{dm.name}</td>
+                                <td>{accountant.name}</td>
+                                <td>{accountant.email}</td>
+                                <td>{accountant.contactNo}</td>
                                 <td>
-                                  {Array.isArray(dm.district) ? dm.district.join(', ') : dm.district}
+                                  {accountant.district?.join(", ")}
                                 </td>
-                                <td>{dm.contactNo}</td>
-                                <td>{dm.email}</td>
                                 <td>
                                   <div className="d-flex gap-3">
-                                    <a href="#!" className="text-success" onClick={() => handleEdit(dm)}>
+                                    <a href="#!" className="text-success" onClick={() => handleEdit(accountant)}>
                                       <i className="mdi mdi-pencil font-size-18" />
                                     </a>
-                                    <a href="#!" className="text-danger" onClick={() => handleDelete(dm._id)}>
+                                    <a href="#!" className="text-danger" onClick={() => handleDelete(accountant._id)}>
                                       <i className="mdi mdi-delete font-size-18" />
                                     </a>
                                   </div>
@@ -329,20 +344,20 @@ function Dms() {
         </div>
       </div>
 
-      {/* Add/Edit DM Modal */}
+      {/* Add/Edit Accountant Modal */}
       <div 
         className={`modal fade ${showModal ? 'show' : ''}`} 
         style={{ display: showModal ? 'block' : 'none' }}
-        id="dmModal" 
+        id="accountantModal" 
         tabIndex={-1} 
-        aria-labelledby="dmModalLabel" 
+        aria-labelledby="accountantModalLabel" 
         aria-hidden={!showModal}
       >
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title" id="dmModalLabel">
-                {isEditMode ? 'Edit DM' : 'Add New DM'}
+              <h5 className="modal-title" id="accountantModalLabel">
+                {isEditMode ? 'Edit Accountant' : 'Add New Accountant'}
               </h5>
               <button 
                 type="button" 
@@ -363,32 +378,7 @@ function Dms() {
                     className="form-control" 
                     id="name" 
                     name="name"
-                    value={currentDm.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="district" className="form-label">District (comma separated)</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    id="district" 
-                    name="district"
-                    value={currentDm.district}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <small className="text-muted">Enter multiple districts separated by commas</small>
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="contactNo" className="form-label">Phone</label>
-                  <input 
-                    type="tel" 
-                    className="form-control" 
-                    id="contactNo" 
-                    name="contactNo"
-                    value={currentDm.contactNo}
+                    value={currentAccountant.name}
                     onChange={handleInputChange}
                     required
                   />
@@ -400,10 +390,57 @@ function Dms() {
                     className="form-control" 
                     id="email" 
                     name="email"
-                    value={currentDm.email}
+                    value={currentAccountant.email}
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="contactNo" className="form-label">contactNo</label>
+                  <input 
+                    type="tel" 
+                    className="form-control" 
+                    id="contactNo" 
+                    name="contactNo"
+                    value={currentAccountant.contactNo}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="district" className="form-label">Districts</label>
+                  <div className="input-group mb-2">
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      id="districtInput"
+                      value={currentDistrictInput}
+                      onChange={handleDistrictInputChange}
+                      placeholder="Add district"
+                    />
+                    <button 
+                      type="button" 
+                      className="btn btn-outline-secondary" 
+                      onClick={addDistrict}
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {currentAccountant?.district?.map((item)=>(<>{item},</>))}
+                  <div className="d-flex flex-wrap gap-2">
+                    {currentAccountant.district.map((district, index) => (
+                      <span key={index} className="badge bg-primary">
+                        {district}
+                        <button 
+                          type="button" 
+                          className="ms-2 btn-close btn-close-white" 
+                          onClick={() => removeDistrict(district)}
+                          aria-label="Remove"
+                          style={{ fontSize: '0.5rem' }}
+                        />
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="modal-footer">
                   <button 
@@ -427,7 +464,7 @@ function Dms() {
       </div>
       {showModal && <div className="modal-backdrop fade show"></div>}
     </>
-  )
+  );
 }
 
-export default Dms;
+export default Accountants;
