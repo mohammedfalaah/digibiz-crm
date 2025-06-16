@@ -2,12 +2,21 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Modal,Table  } from 'react-bootstrap';
+import Axioscall from './services/Axioscall';
+import moment from 'moment';
 
 function Projects() {
   const [projectsList, setProjectsList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const[showEmi,setShowEmi]=useState(false)
+  const [type,setType]=useState("")
+  const [emiData ,setEmiData]=useState("")
   const navigate = useNavigate();
+  const[emiHistoryData,setEmiHistoryData]=useState([])
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -17,7 +26,8 @@ function Projects() {
     hasNextPage: false
   });
   const TOKEN = localStorage.getItem('digibiztocken');
-
+  let decodedData=jwtDecode(TOKEN)
+  let role=decodedData.role
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -25,7 +35,7 @@ function Projects() {
     _id: '',
     name: "",
     startedDate: "",
-    status: "active", // active, completed, blocked
+    status: "active", 
     scheme: "",
     district: "",
     handledDM: "",
@@ -37,7 +47,7 @@ function Projects() {
   const getProjects = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
-      const result = await axios.get(`${api}/project?page=${page}&limit=${limit}`, {
+      const result = await axios.get(`${api}/projects?page=${page}&limit=${limit}`, {
         headers: {
           'Authorization': `Bearer ${TOKEN}`
         }
@@ -61,6 +71,18 @@ function Projects() {
       setLoading(false);
     }
   };
+
+  const getHistory=async(id)=>{
+    try {
+      let data=await Axioscall('get',`monthly-emi/history?projectId=${id}`,{},true)
+      console.log(data,"datasss")
+      setEmiHistoryData(data.data.data)
+      setType("history")
+      setShowEmi(true)
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   useEffect(() => {
     getProjects();
@@ -149,22 +171,43 @@ function Projects() {
     }
   };
 
+let viewEmi=async(id)=>{
+  try {
+    let data=await Axioscall('get',`monthly-emi/project-emi?projectId=${id}`,{},true)
+    setEmiData(data.data.data[0])
+    console.log(data.data.data[0],"data")
+    setType("emi")
+    setShowEmi(true)
+    
+  } catch (error) {
+    console.log(error)
+  }
+}
+
   // Toggle block status
   const toggleBlockStatus = async (id, currentStatus) => {
     try {
-      await axios.patch(`${api}/project/${id}/block`, {
-        isBlocked: !currentStatus
+     
+      const newStatus = currentStatus === 'blocked' ? 'unblock' : 'block';
+  
+      await axios.put(`${api}/projects/status`, {
+        projectId: id,
+        status: newStatus
       }, {
         headers: {
-          'Authorization': `Bearer ${TOKEN}`
+          Authorization: `Bearer ${TOKEN}`
         }
       });
+  
+      // Refresh the project list after successful status toggle
       getProjects(pagination.page, pagination.limit);
+  
     } catch (error) {
-      console.error('Error toggling block status:', error);
-      setError('Error updating block status');
+      console.error('Error toggling block status:', error?.response?.data || error.message);
+      setError('Failed to update project status. Please try again.');
     }
   };
+  
 
   // Reset form
   const resetForm = () => {
@@ -208,7 +251,7 @@ function Projects() {
                   <div className="d-flex align-items-center">
                     <h5 className="mb-0 card-title flex-grow-1">Projects List</h5>
                     <div className="flex-shrink-0">
-                      <button 
+                      {/* <button 
                         className="btn btn-primary me-2" 
                         onClick={() => {
                           resetForm();
@@ -216,7 +259,7 @@ function Projects() {
                         }}
                       >
                         Add New Project
-                      </button>
+                      </button> */}
                       <button className="btn btn-light me-2" onClick={() => getProjects(pagination.page, pagination.limit)}>
                         <i className="mdi mdi-refresh" />
                       </button>
@@ -260,12 +303,13 @@ function Projects() {
                             <tr>
                               <th scope="col">No</th>
                               <th scope="col">Name</th>
-                              <th scope="col">Started Date</th>
+                              <th scope="col">Project Id</th>
                               <th scope="col">Status</th>
-                              <th scope="col">Scheme</th>
+                                {/* <th scope="col">Scheme</th> */}
                               <th scope="col">District</th>
-                              <th scope="col">Handled DM</th>
-                              <th scope="col">Handled Accountant</th>
+                              {/* <th scope="col">Handled DM</th> */}
+                              {role="superadmin"&&(                             
+                       <th scope="col">Handled DM</th>)}
                               <th scope="col">Block Status</th>
                               <th scope="col">Actions</th>
                             </tr>
@@ -274,41 +318,44 @@ function Projects() {
                             {projectsList.map((project, index) => (
                               <tr key={project._id}>
                                 <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
-                                <td>{project.name}</td>
-                                <td>{new Date(project.startedDate).toLocaleDateString()}</td>
+                                <td>{project?.clientDetails?.name}</td>
+                                <td>{project?.projectCode}</td>
                                 <td>
-                                  <span className={`badge bg-${project.status === 'active' ? 'success' : project.status === 'completed' ? 'primary' : 'warning'}`}>
+                                  <span className={`badge p-1 bg-${project.status === 'blocked' ? 'danger' : project.status === 'in progress' ? 'primary' : 'warning'}`}>
                                     {project.status}
                                   </span>
                                 </td>
-                                <td>{project.scheme}</td>
-                                <td>{project.district}</td>
-                                <td>{project.handledDM}</td>
-                                <td>{project.handledAccountant}</td>
-                                <td>
+                                {/* <td>{project.planName}</td> */}
+                                <td>{project.districtManager.district}</td>
+                                <td>{project.districtManager.name}</td>
+                                {/* <td>{project.handledAccountant}</td> */}
+                               {role='admin'&&( <td>
                                   <div className="form-check form-switch">
                                     <input 
                                       type="checkbox" 
-                                      className="form-check-input" 
-                                      checked={project.isBlocked}
-                                      onChange={() => toggleBlockStatus(project._id, project.isBlocked)}
+                                      className={`form-check-input ${project.status=='blocked' ? 'bg-danger' : ''} `} 
+                                      checked={project.status==='blocked'}
+                                      onChange={() => toggleBlockStatus(project._id, project.status)}
                                     />
                                     <label className="form-check-label">
-                                      {project.isBlocked ? 'Blocked' : 'Active'}
+                                      {project.status=='blocked' ? 'Blocked' : 'Active'}
                                     </label>
                                   </div>
-                                </td>
+                                </td>)}
                                 <td>
                                   <div className="d-flex gap-3">
-                                    <a href="#!" className="text-success" onClick={() => handleEdit(project)}>
+                                    {/* <a href="#!" className="text-success" onClick={() => handleEdit(project)}>
                                       <i className="mdi mdi-pencil font-size-18" />
-                                    </a>
-                                    <a href="#!" className="text-danger" onClick={() => handleDelete(project._id)}>
+                                    </a> */}
+                                    {/* <a href="#!" className="text-danger" onClick={() => handleDelete(project._id)}>
                                       <i className="mdi mdi-delete font-size-18" />
+                                    </a> */}
+                                    <a onClick={()=>viewEmi(project._id)} className=" btn btn-primary btn-sm">
+                                    View Emi
                                     </a>
-                                    <a href={`/projects/${project._id}`} className="text-primary">
-                                      <i className="mdi mdi-eye font-size-18" />
-                                    </a>
+                                     {/* <a onClick={()=>getHistory(project._id)} className=" btn btn-warning btn-sm">
+                                    Emi history
+                                    </a> */}
                                   </div>
                                 </td>
                               </tr>
@@ -508,6 +555,52 @@ function Projects() {
         </div>
       </div>
       {showModal && <div className="modal-backdrop fade show"></div>}
+   <Modal size={type=="history"?"lg":'sm'} show={showEmi} onHide={() => setShowEmi(false)}>
+      <Modal.Header closeButton>
+        <Modal.Title>EMI Details</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {type === 'emi' && emiData ? (
+          <div className="space-y-2">
+            <p><strong>Monthly EMI Amount:</strong> ₹{emiData.monthlyEmiAmount}</p>
+            <p><strong>Status:</strong> {emiData.status}</p>
+            <p><strong>EMI Date:</strong> {moment(emiData.emiDate).format('YYYY-MM-DD HH:mm')}</p>
+            <p><strong>Due Date:</strong> {moment(emiData.dueDate).format('YYYY-MM-DD')}</p>
+            <p><strong>Paid Date:</strong> {emiData.paidDate ? moment(emiData.paidDate).format('YYYY-MM-DD') : '—'}</p>
+            <p><strong>Created At:</strong> {moment(emiData.createdAt).format('YYYY-MM-DD')}</p>
+          </div>
+        ) : type === 'history' && emiHistoryData.length > 0 ? (
+          <Table striped bordered hover responsive>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>EMI Amount (₹)</th>
+                <th>Status</th>
+                <th>EMI Date</th>
+                <th>Due Date</th>
+                <th>Paid Date</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emiHistoryData.map((emi, index) => (
+                <tr key={emi._id || index}>
+                  <td>{moment(emi.emiDate).format('MMMM YYYY')}</td>
+                  <td>{emi.monthlyEmiAmount}</td>
+                  <td>{emi.status}</td>
+                  <td>{moment(emi.emiDate).format('YYYY-MM-DD')}</td>
+                  <td>{moment(emi.dueDate).format('YYYY-MM-DD')}</td>
+                  <td>{emi.paidDate ? moment(emi.paidDate).format('YYYY-MM-DD') : '—'}</td>
+                  <td>{moment(emi.createdAt).format('YYYY-MM-DD')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <p>No EMI data available.</p>
+        )}
+      </Modal.Body>
+    </Modal>
     </>
   );
 }

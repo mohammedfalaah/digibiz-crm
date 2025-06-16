@@ -1,34 +1,57 @@
 import React, { useState } from 'react';
-import Axioscall from './services/Axioscall'; // Assuming you have axios instance setup
+import Axioscall from './services/Axioscall';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 
 function Login() {
   const [passwordType, setPasswordType] = useState('password');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const navigate=useNavigate()
+  const navigate = useNavigate();
 
   const login = async (e) => {
-    e.preventDefault(); // Prevent form reload
-    try {
-    let data={
-        username,
-        password
+    e.preventDefault();
+
+    // Basic Validation
+    if (!username.trim()) {
+      toast.error('Username is required');
+      return;
     }
-      const res = await Axioscall('post','user/login',data,false)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// if (!emailRegex.test(username)) {
+//   toast.error('Enter a valid email address');
+//   return;
+// }
+
+    if (!password.trim()) {
+      toast.error('Password is required');
+      return;
+    }
+
+    // if (password.length < 6) {
+    //   toast.error('Password must be at least 6 characters');
+    //   return;
+    // }
+
+    try {
+      let data = { username, password };
+      const res = await Axioscall('post', 'user/login', data, false);
       console.log('Login Success:', res.data.data);
-      // You can store token or redirect here
+      const decodedToken = jwtDecode(res.data.data.token);
+      console.log(decodedToken,"decoded token");
       localStorage.setItem('digibiztocken', res.data.data.token);
-      toast.success( res.data.message)
-      navigate('/')
-
-
+      if(decodedToken.role=="superadmin"||decodedToken.role=='admin'){
+        toast.success(res.data.message);
+        navigate('/');
+      }
+      else{
+        toast.error("You don't have Permission to Access")
+      }
+    
     } catch (err) {
       console.error('Login Failed:', err.response?.data || err.message);
-    //   alert('Login Failed: ' + (err.response?.data?.message || 'Invalid credentials'));
-    toast.error(err.response?.data?.message || 'Invalid credentials')
-    
+      toast.error(err.response?.data?.message || 'Invalid credentials');
     }
   };
 

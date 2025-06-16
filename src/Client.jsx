@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
+import Axioscall from './services/Axioscall'
 
 function Clients() {
   const [clientsList, setClientsList] = useState([]);
@@ -19,8 +20,12 @@ function Clients() {
   const TOKEN = localStorage.getItem('digibiztocken');
 
   // Modal states
-  const [showModal, setShowModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [totalMonth,setTotalMonth]=useState(0)
+  const [scheme,setScheme]=useState("")
   const [currentClient, setCurrentClient] = useState({
     _id: '',
     name: "",
@@ -36,15 +41,72 @@ function Clients() {
     }]
   });
 
+  const generateEmi=(totalAmount,totalmonth,downpayment)=>{
+    if(!totalAmount||totalmonth==0||!downpayment){
+      return false 
+    }
+    let down=downpayment*totalAmount/100
+    let emipermonth=(totalAmount-down)/totalmonth
+    return emipermonth
+  }
+
+  const getTotalMonth=async(startMonth,endMonth)=>{
+    console.log(startMonth,"start",endMonth)
+    const start = new Date(startMonth);
+    const end = new Date(endMonth);
+    const years=end.getFullYear()-start.getFullYear()
+    const month=end.getMonth()-start.getMonth()
+    return years*12 + month + (end.getDate(0)>=start.getDate()?0:-1)
+  }
+
+
+  // Project form state
+  const [projectForm, setProjectForm] = useState({
+    clientId: "",
+    plan: "",
+    totalAmount: "",
+    district: "",
+    startDate: "",
+    endDate: ""
+  });
+
+
+   useEffect(() => {
+  let isMounted = true;
+  
+  const fetchData = async () => {
+    try {
+      const data = await getTotalMonth(projectForm.startDate, projectForm.endDate);
+      if (isMounted) {
+        console.log(data, "total months");
+        setTotalMonth(data)
+      }
+    } catch (error) {
+      console.error("Error in useEffect:", error);
+    }
+  };
+  
+  fetchData();
+  
+  return () => {
+    isMounted = false;
+  };
+}, [projectForm.startDate, projectForm.endDate]);
+
+  // Dropdown options
+  const [plans, setPlans] = useState([]);
+  const districts = [
+    "Alappuzha", "Ernakulam", "Idukki", "Kannur", "Kasaragod", 
+    "Kollam", "Kottayam", "Kozhikode", "Malappuram", "Palakkad", 
+    "Pathanamthitta", "Thiruvananthapuram", "Thrissur", "Wayanad"
+  ];
+
   // Fetch clients with pagination
   const getClients = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
-      const result = await axios.get(`${api}/projects/clients?page=${page}&limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${TOKEN}`
-        }
-      });
+      const result=await Axioscall('get',`projects/clients?page=${page}&limit=${limit}`,{},true)
+
       
       setClientsList(result.data.data.docs);
       setPagination({
@@ -64,8 +126,20 @@ function Clients() {
     }
   };
 
+  // Fetch plans
+  const getPlans = async () => {
+    try {
+      const result=await Axioscall('get',`emi?type=emi`,{},true)
+      console.log(result?.data?.data,"docssssss.....")
+      setPlans(result?.data?.data?.docs);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    }
+  };
+
   useEffect(() => {
     getClients();
+    getPlans();
   }, []);
 
   // Handle pagination
@@ -80,6 +154,20 @@ function Clients() {
     const { name, value } = e.target;
     setCurrentClient({
       ...currentClient,
+      [name]: value
+    });
+  };
+
+  const handleSelectScheme=(e)=>{
+    setScheme(e.target.value)
+    
+  }
+
+  // Handle project form change
+  const handleProjectFormChange = (e) => {
+    const { name, value } = e.target;
+    setProjectForm({
+      ...projectForm,
       [name]: value
     });
   };
@@ -124,7 +212,7 @@ function Clients() {
     try {
       if (isEditMode) {
         // Update existing client
-        await axios.put(`${api}/projects/clients${currentClient._id}`, currentClient, {
+        await axios.put(`${api}/projects/clients/${currentClient._id}`, currentClient, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
@@ -142,12 +230,45 @@ function Clients() {
       
       // Refresh the list and close modal
       getClients(pagination.page, pagination.limit);
-      setShowModal(false);
+      setShowClientModal(false);
       resetForm();
     } catch (error) {
       console.error('Error saving client:', error);
       setError(`Error ${isEditMode ? 'updating' : 'adding'} client: ${error.response?.data?.message || error.message}`);
     }
+  };
+
+  // Add Project
+  const handleAddProject = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${api}/projects`, projectForm, {
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      setShowProjectModal(false);
+      setProjectForm({
+        clientId: "",
+        plan: "",
+        totalAmount: "",
+        district: "",
+        startDate: "",
+        endDate: ""
+      });
+      
+      // Optionally refresh data or show success message
+    } catch (error) {
+      console.error('Error adding project:', error);
+      setError(`Error adding project: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
+  // View Client Details
+  const handleView = (client) => {
+    setCurrentClient(client);
+    setShowViewModal(true);
   };
 
   // Edit Client
@@ -167,14 +288,27 @@ function Clients() {
       }]
     });
     setIsEditMode(true);
-    setShowModal(true);
+    setShowClientModal(true);
+  };
+
+  // Prepare Add Project
+  const prepareAddProject = (client) => {
+    setProjectForm({
+      clientId: client._id,
+      plan: "",
+      totalAmount: "",
+      district: client.district || "",
+      startDate: "",
+      endDate: ""
+    });
+    setShowProjectModal(true);
   };
 
   // Delete Client
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this client?')) {
       try {
-        await axios.delete(`${api}/client/${id}`, {
+        await axios.delete(`${api}/projects/clients/${id}`, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`
           }
@@ -236,7 +370,7 @@ function Clients() {
                         className="btn btn-primary me-2" 
                         onClick={() => {
                           resetForm();
-                          setShowModal(true);
+                          setShowClientModal(true);
                         }}
                       >
                         Add New Client
@@ -317,9 +451,15 @@ function Clients() {
                                     <a href="#!" className="text-danger" onClick={() => handleDelete(client._id)}>
                                       <i className="mdi mdi-delete font-size-18" />
                                     </a>
-                                    <a href={`/clients/${client._id}`} className="text-primary">
+                                    <a href="#!" className="text-primary" onClick={() => handleView(client)}>
                                       <i className="mdi mdi-eye font-size-18" />
                                     </a>
+                                    <button 
+                                      className="btn btn-sm btn-primary" 
+                                      onClick={() => prepareAddProject(client)}
+                                    >
+                                      Add Project
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -386,12 +526,12 @@ function Clients() {
 
       {/* Add/Edit Client Modal */}
       <div 
-        className={`modal fade ${showModal ? 'show' : ''}`} 
-        style={{ display: showModal ? 'block' : 'none' }}
+        className={`modal fade ${showClientModal ? 'show' : ''}`} 
+        style={{ display: showClientModal ? 'block' : 'none' }}
         id="clientModal" 
         tabIndex={-1} 
         aria-labelledby="clientModalLabel" 
-        aria-hidden={!showModal}
+        aria-hidden={!showClientModal}
       >
         <div className="modal-dialog modal-dialog-centered modal-lg">
           <div className="modal-content">
@@ -403,7 +543,7 @@ function Clients() {
                 type="button" 
                 className="btn-close" 
                 onClick={() => {
-                  setShowModal(false);
+                  setShowClientModal(false);
                   resetForm();
                 }}
                 aria-label="Close"
@@ -453,15 +593,19 @@ function Clients() {
                   </div>
                   <div className="col-md-6 mb-3">
                     <label htmlFor="district" className="form-label">District</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      id="district" 
+                    <select
+                      className="form-select"
+                      id="district"
                       name="district"
                       value={currentClient.district}
                       onChange={handleInputChange}
                       required
-                    />
+                    >
+                      <option value="">Select District</option>
+                      {districts.map(district => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 
@@ -540,13 +684,13 @@ function Clients() {
                       </div>
                     </div>
                   ))}
-                  <button
+                  {/* <button
                     type="button"
                     className="btn btn-sm btn-primary"
                     onClick={addAddressField}
                   >
                     Add Another Address
-                  </button>
+                  </button> */}
                 </div>
                 
                 <div className="modal-footer">
@@ -554,7 +698,7 @@ function Clients() {
                     type="button" 
                     className="btn btn-secondary" 
                     onClick={() => {
-                      setShowModal(false);
+                      setShowClientModal(false);
                       resetForm();
                     }}
                   >
@@ -569,9 +713,227 @@ function Clients() {
           </div>
         </div>
       </div>
-      {showModal && <div className="modal-backdrop fade show"></div>}
+
+      {/* View Client Details Modal */}
+      <div 
+        className={`modal fade ${showViewModal ? 'show' : ''}`} 
+        style={{ display: showViewModal ? 'block' : 'none' }}
+        id="viewModal" 
+        tabIndex={-1} 
+        aria-labelledby="viewModalLabel" 
+        aria-hidden={!showViewModal}
+      >
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="viewModalLabel">Client Details</h5>
+              <button 
+                type="button" 
+                className="btn-close" 
+                onClick={() => setShowViewModal(false)}
+                aria-label="Close"
+              />
+            </div>
+            <div className="modal-body">
+              <div className="row mb-3">
+                <div className="col-md-6">
+                  <h6>Name</h6>
+                  <p>{currentClient.name}</p>
+                </div>
+                <div className="col-md-6">
+                  <h6>Email</h6>
+                  <p>{currentClient.email}</p>
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-md-6">
+                  <h6>Contact Number</h6>
+                  <p>{currentClient.contactNo}</p>
+                </div>
+                <div className="col-md-6">
+                  <h6>District</h6>
+                  <p>{currentClient.district}</p>
+                </div>
+              </div>
+              <div className="mb-3">
+                <h6>Addresses</h6>
+                {currentClient.address.map((addr, index) => (
+                  <div key={index} className="card mb-2">
+                    <div className="card-body">
+                      <p><strong>Address {index + 1}:</strong></p>
+                      <p>{addr.line1}, {addr.line2}</p>
+                      <p>{addr.city}, {addr.state} - {addr.pincode}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => setShowViewModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Project Modal */}
+      <div 
+        className={`modal fade ${showProjectModal ? 'show' : ''}`} 
+        style={{ display: showProjectModal ? 'block' : 'none' }}
+        id="projectModal" 
+        tabIndex={-1} 
+        aria-labelledby="projectModalLabel" 
+        aria-hidden={!showProjectModal}
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="projectModalLabel">Add New Project</h5>
+              <button 
+                type="button" 
+                className="btn-close" 
+                onClick={() => setShowProjectModal(false)}
+                aria-label="Close"
+              />
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleAddProject}>
+                <div className="mb-3">
+                  <label htmlFor="plan" className="form-label">Scheme</label>
+                  <select
+                    className="form-select"
+                    id="plan"
+                    name="plan"
+                    value={scheme}
+                    onChange={handleSelectScheme}
+                    required
+                  >
+                    <option value="">Select Scheme</option>
+                   
+                      <option value="emi" >Emi</option>
+                      <option value="normal" >Normal</option>
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="totalAmount" className="form-label">Total Amount</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    id="totalAmount"
+                    name="totalAmount"
+                    value={projectForm.totalAmount}
+                    onChange={handleProjectFormChange}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="district" className="form-label">District</label>
+                  <select
+                    className="form-select"
+                    id="district"
+                    name="district"
+                    value={projectForm.district}
+                    onChange={handleProjectFormChange}
+                    required
+                  >
+                    <option value="">Select District</option>
+                    {districts.map(district => (
+                      <option key={district} value={district}>{district}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <label htmlFor="startDate" className="form-label">Start Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      id="startDate"
+                      name="startDate"
+                      value={projectForm.startDate}
+                      onChange={handleProjectFormChange}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label htmlFor="endDate" className="form-label">End Date</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      id="endDate"
+                      name="endDate"
+                      value={projectForm.endDate}
+                      onChange={handleProjectFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+{scheme=="emi"&&projectForm.totalAmount!=""&&(
+
+  <div className="row">
+  {plans?.map((item)=>(
+    <div  className="col-lg-4">
+    <div style={{minHeight:"140px",minWidth:"140px"}} className="card border border-primary">
+      <div className="card-header bg-transparent border-primary">
+        <h5 style={{textAlign:"center",textDecoration:"underline"}} className="my-0 text-primary">{item?.planName}</h5>
+      </div>
+      <div className="card-body">
+{/* <h6 className='p-1 text-center'  >
+  {item?.downPayment != null ? `Down Payment   ${item.downPayment} %` : ''}
+</h6>      */}
+
+
+
+<p style={{color:"black"}} className='p-1 text-center'>
+  {(generateEmi(projectForm.totalAmount, item.duration, item?.downPayment)>0) 
+    ?`${ generateEmi(projectForm.totalAmount, item.duration, item?.downPayment)?.toFixed(2)} for ${item?.downPayment} Months` 
+    :"" }
+</p>  
+
+      </div>
+    </div>
+  </div>
+  ))}
+  
+ 
+
+</div>
+)}
+ 
+
+
+
+                
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setShowProjectModal(false)}
+                  >
+                    Close
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Add Project
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Backdrop for modals */}
+      {(showClientModal || showViewModal || showProjectModal) && (
+        <div className="modal-backdrop fade show"></div>
+      )}
     </>
   );
 }
 
-export default Clients; 
+export default Clients;

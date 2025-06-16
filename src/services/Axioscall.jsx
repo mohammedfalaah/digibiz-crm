@@ -1,6 +1,8 @@
 import React from 'react'
 import axios from 'axios'
-let Baseurl='http://localhost:5000/server'
+import api from '../api'
+
+let Baseurl=`${api}`
 
 export default async function Axioscall(method,endpoint,datalist,header) {
 
@@ -17,7 +19,7 @@ export default async function Axioscall(method,endpoint,datalist,header) {
         body.headers = headerauth
       }
       if(method==="get"){
-        data = await axios.get(base_url,{params:datalist,headers:{'Authorization': `Bearer ${localStorage.getItem('craig-token')}`}})
+        data = await axios.get(base_url,{params:datalist,headers:{'Authorization': `Bearer ${localStorage.getItem('digibiztocken')}`}})
       }else {
   
         data = await axios(body)

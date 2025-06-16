@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
-
+import toast from 'react-hot-toast';
 function Dms() {
   const [dmsList, setDmsList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -91,17 +91,22 @@ function Dms() {
           : currentDm.district
       };
 
+      let response
+
       if (isEditMode) {
         // Update existing DM
-        await axios.put(`${api}/dm/${dmData._id}`, dmData, {
+        dmData.id=dmData._id
+     response=await axios.put(`${api}/dm`, dmData, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
           }
         });
+
+        console.log(response,"response..........")
       } else {
         // Add new DM
-        await axios.post(`${api}/dm`, dmData, {
+      response=  await axios.post(`${api}/dm`, dmData, {
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
@@ -109,12 +114,14 @@ function Dms() {
         });
       }
       
+      toast.success(response.data.message)
       // Refresh the list and close modal
       getDms(pagination.page, pagination.limit);
       setShowModal(false);
       resetForm();
     } catch (error) {
       console.error('Error saving DM:', error);
+      toast.error(error.response.data.message)
       setError(`Error ${isEditMode ? 'updating' : 'adding'} DM: ${error.response?.data?.message || error.message}`);
     }
   };

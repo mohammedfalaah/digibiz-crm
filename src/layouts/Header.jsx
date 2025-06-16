@@ -1,5 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { jwtDecode } from 'jwt-decode'
 
 const Header = () => {
   const navigate=useNavigate()
@@ -7,6 +8,8 @@ const Header = () => {
     localStorage.clear()
     navigate('/login')
   }
+  let TOKEN=localStorage.getItem("digibiztocken")
+  let data=jwtDecode(TOKEN)
   return (
     <>
  <header id="page-topbar">
@@ -67,15 +70,15 @@ const Header = () => {
         
           <div className="dropdown d-inline-block">
             <button type="button" className="btn header-item waves-effect" id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-              <span className="d-none d-xl-inline-block ms-1" key="t-henry">SUPER ADMIN & HR</span>
+              <span className="d-none d-xl-inline-block ms-1" key="t-henry">{data?.role?.toUpperCase()}</span>
               <i className="mdi mdi-chevron-down d-none d-xl-inline-block" />
             </button>
             <div className="dropdown-menu dropdown-menu-end">
               {/* item*/}
-              <a className="dropdown-item" href="#"><i className="bx bx-user font-size-16 align-middle me-1" /> <span key="t-profile">Profile</span></a>
+              {/* <a className="dropdown-item" href="#"><i className="bx bx-user font-size-16 align-middle me-1" /> <span key="t-profile">Profile</span></a>
               <a className="dropdown-item" href="#"><i className="bx bx-wallet font-size-16 align-middle me-1" /> <span key="t-my-wallet">My Wallet</span></a>
               <a className="dropdown-item d-block" href="#"><span className="badge bg-success float-end">11</span><i className="bx bx-wrench font-size-16 align-middle me-1" /> <span key="t-settings">Settings</span></a>
-              <a className="dropdown-item" href="#"><i className="bx bx-lock-open font-size-16 align-middle me-1" /> <span key="t-lock-screen">Lock screen</span></a>
+              <a className="dropdown-item" href="#"><i className="bx bx-lock-open font-size-16 align-middle me-1" /> <span key="t-lock-screen">Lock screen</span></a> */}
               <div className="dropdown-divider" />
               <a className="dropdown-item text-danger" onClick={()=>logout()}><i className="bx bx-power-off font-size-16 align-middle me-1 text-danger" /> <span key="t-logout">Logout</span></a>
             </div>
